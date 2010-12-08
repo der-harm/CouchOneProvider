@@ -1,0 +1,18 @@
+
+listen nie null sondern empty!!
+
+cursor.setNotificationUri - listener informieren
+
+&include_docs=true
+
+endkey="startkey +\u9999"
+
+
+
+Suche nach ContactsContract oder package provider
+ 
+contactsContract löschen und final strings CONTENT_URI ersetzen, wo fehler auftauchen
+auch für subclasses (Contacts, Data, RawData)
+ 
+couchProvider muss selection handeln: 
+
