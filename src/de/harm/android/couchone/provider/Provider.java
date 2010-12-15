@@ -1,4 +1,4 @@
-package de.harm.android.couchone;
+package de.harm.android.couchone.provider;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -8,44 +8,33 @@ import java.util.Map.Entry;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import de.harm.android.couchone.common.CouchConstants;
-
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.SQLException;
 import android.net.Uri;
+import android.util.Log;
 import android.util.Pair;
+import de.harm.android.couchone.common.CouchConstants;
 
 public class Provider extends ContentProvider {
 
 	@Override
 	public boolean onCreate() {
+		Log.i("HarmsProvider", "accessed onCreate method");
 		return true;
-	}
-
-	public boolean testConnection() {
-		JSONObject response = RestClient.request(this.buildQuery(null, null),
-				null, 1, null);
-		List<LinkedHashMap<String, String>> map = JsonProcessor
-				.jsonToMap(response);
-		// TODO equals
-		if (map.contains("db_name")
-				&& map.get(0).get("db_name")
-						.equalsIgnoreCase(CouchConstants.DB_Name)) {
-			return true;
-		} else {
-			return false;
-		}
-		// return true;
 	}
 
 	@Override
 	public String getType(Uri url) {
 		if (CouchConstants.isCollectionUri(url)) {
+			Log.i("HarmsProvider", "getType(): url to be checked: " + url
+					+ " is COLLECTION_TYPE");
 			return (CouchConstants.COLLECTION_TYPE);
 		}
+		Log.i("HarmsProvider", "getType(): url to be checked: " + url
+				+ " is SINGLE_TYPE");
 		return (CouchConstants.SINGLE_TYPE);
 	}
 
@@ -55,22 +44,34 @@ public class Provider extends ContentProvider {
 	 * @param uri
 	 *            get collection or item
 	 * @param view
+	 * @return one complete JSON document or many key value pairs
 	 */
 	@Override
 	public Cursor query(Uri uri, String[] noProjection, String view,
 			String[] selectionArgs, String noSortOrder) {
 
+		Log.i("HarmsProvider", "query()-args: Uri: " + uri + ", view: " + view
+				+ ", selectionArgs: " + selectionArgs);
+
 		MatrixCursor cursor = null;
 
-		Pair<String, String>[] params = this.buildParams(selectionArgs);
+		Pair<String, String>[] params = null;
+		if (selectionArgs != null) {
+			params = this.buildParams(selectionArgs);
+			Log.i("HarmsProvider", "query(): http-params: " + params.toString());
+		}
 
 		JSONObject response = RestClient.request(this.buildQuery(uri, view),
 				params, 1, null);
+		Log.i("HarmsProvider", "query(): JSON response after query: "
+				+ response.toString());
+
 		List<LinkedHashMap<String, String>> list = JsonProcessor
 				.jsonToMap(response);
 		// TODO: sind die spalten bei mehreren ergebnissen immer gleich?
 		// the keys used as column names
 		if (list.isEmpty()) {
+			Log.i("HarmsProvider", "query(): response is empty!!");
 			cursor = new MatrixCursor(new String[] { "" });
 		} else {
 			cursor = new MatrixCursor((String[]) list.get(0).keySet()
@@ -95,6 +96,8 @@ public class Provider extends ContentProvider {
 	 */
 	@Override
 	public Uri insert(Uri urL, ContentValues values) {
+		Log.i("HarmsProvider", "insert()-args: Uri: " + urL
+				+ ", ContentValues: " + values.toString());
 
 		// single NEW entry has to be passed as COLLECTION, as it has no ID
 		// yet
@@ -111,14 +114,22 @@ public class Provider extends ContentProvider {
 			// as we use the PUT method the id has to be set in advanced
 			JSONObject response = RestClient.request(this.getUUIDs(), null, 1,
 					null);
+			Log.i("HarmsProvider",
+					"query(): JSON response after insert document: "
+							+ response.toString());
+
 			List<LinkedHashMap<String, String>> list = JsonProcessor
 					.jsonToMap(response);
 			String uuid = "";
-			if (!list.isEmpty()) {
+			if (list.isEmpty()) {
+				Log.i("HarmsProvider", "query(): requested id missing!!");
+			} else {
 				uuid = list.get(0).get("uuid");
+				Log.i("HarmsProvider",
+						"query(): retrieved uuid for new document: " + uuid);
 			}
 			Uri urI = Uri.withAppendedPath(urL, uuid);
-
+			Log.i("HarmsProvider", "query(): save document to Uri: " + urI);
 			return this.saveJSON(urI, JsonProcessor.valuesToJson(values));
 		}
 		throw new SQLException("Failed to insert row into " + urL);
@@ -147,6 +158,8 @@ public class Provider extends ContentProvider {
 
 		JSONObject response = RestClient.request(this.buildQuery(urI, null),
 				null, 2, json);
+		Log.i("HarmsProvider", "saveJSON: JSON responte after safe document: "
+				+ response.toString());
 		List<LinkedHashMap<String, String>> map = JsonProcessor
 				.jsonToMap(response);
 
@@ -154,6 +167,8 @@ public class Provider extends ContentProvider {
 				&& map.get(0).get("id").equals(urI.getPathSegments().get(1))) {
 			// super.getContext().getContentResolver().notifyChange(urI,
 			// null);
+			Log.i("HarmsProvider", "saveJSON(): JSON saved, returned Uri: "
+					+ urI);
 			return urI;
 		}
 		throw new SQLException("Failed to insert row into " + urI);
@@ -172,15 +187,20 @@ public class Provider extends ContentProvider {
 	 */
 	@Override
 	public int delete(Uri urI, String noWhere, String[] noWhereArgs) {
+		Log.i("HarmsProvider", "delete()-args: Uri: " + urI);
 
 		if (!CouchConstants.isCollectionUri(urI)) {
 
 			JSONObject response = RestClient.request(
 					this.buildQuery(urI, null), null, 1, null);
+			Log.i("HarmsProvider", "delete(): JSON response after delete: "
+					+ response.toString());
 
 			String rev = null;
 			try {
 				rev = response.getString("_rev");
+				Log.i("HarmsProvider",
+						"delete(): Document revision to be deleted: " + rev);
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -190,6 +210,9 @@ public class Provider extends ContentProvider {
 			param[0] = new Pair<String, String>("rev", rev);
 			response = RestClient.request(this.buildQuery(urI, null), param, 3,
 					null);
+			Log.i("HarmsProvider",
+					"delete(): returned JSON after document deletion: "
+							+ response.toString());
 
 			List<LinkedHashMap<String, String>> list = JsonProcessor
 					.jsonToMap(response);
@@ -198,6 +221,8 @@ public class Provider extends ContentProvider {
 					&& list.get(0).get("ok").equals("true")) {
 				// super.getContext().getContentResolver().notifyChange(urI,
 				// null);
+				Log.i("HarmsProvider",
+						"delete(): Document deleted successfully!");
 				return 1;
 			}
 		}
@@ -218,11 +243,16 @@ public class Provider extends ContentProvider {
 	@Override
 	public int update(Uri urI, ContentValues values, String noWhere,
 			String[] noWhereArgs) {
+		Log.i("HarmsProvider", "update()-args: Uri: " + urI
+				+ ", ContentValues: " + values.toString());
 
 		this.checkForAllRequiredAttributes(values);
 
 		JSONObject response = RestClient.request(this.buildQuery(urI, null),
 				null, 1, null);
+		Log.i("HarmsProvider",
+				"update(): JSON response, retrieved document to be updated: "
+						+ response.toString());
 
 		// TODO: adresse 2. ebene??
 		Iterator<Entry<String, Object>> it = values.valueSet().iterator();
@@ -236,7 +266,11 @@ public class Provider extends ContentProvider {
 			}
 		} while (it.hasNext());
 
+		Log.i("HarmsProvider",
+				"update(): JSON document with changes to be updated: "
+						+ response.toString());
 		this.saveJSON(urI, response);
+		Log.i("HarmsProvider", "update(): Document successfully updated!!");
 		return 1;
 	}
 
@@ -257,10 +291,10 @@ public class Provider extends ContentProvider {
 				+ CouchConstants.DB_Name);
 		// result.append(CouchConstants.HOST + "/" + CouchConstants.DB_Name);
 
-		if (uri != null)
+		if (uri != null) {
 			if (CouchConstants.isCollectionUri(uri)) {
 				if (view == null) {
-					result.append(CouchConstants.VIEW_Default);
+					// result.append(CouchConstants.VIEW_Default);
 				} else {
 					result.append(view);
 				}
@@ -277,9 +311,17 @@ public class Provider extends ContentProvider {
 				// TODO getlastseg
 				result.append("/" + uri.getPathSegments().get(1));
 			}
+		}
+		Log.i("HarmsProvider", "buildQuery(): The Uri for the RestClient: "
+				+ result.toString());
 		return Uri.parse(result.toString());
 	}
 
+	/**
+	 * 
+	 * @param selectionArgs
+	 * @return an array of pairs, could be null!!
+	 */
 	private Pair<String, String>[] buildParams(String[] selectionArgs) {
 		Pair<String, String>[] params = null;
 

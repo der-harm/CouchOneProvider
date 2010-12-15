@@ -3,6 +3,7 @@ package de.harm.android.couchone.common;
 import android.content.UriMatcher;
 import android.net.Uri;
 import android.provider.BaseColumns;
+import android.util.Log;
 
 public final class CouchConstants implements BaseColumns {
 	// https://github.com/apage43
@@ -13,16 +14,16 @@ public final class CouchConstants implements BaseColumns {
 	public static final String DB_Name = "test2";
 
 	private static final String DESIGN_DOC = "/_design/test";
-	public static final String VIEW_Default = DESIGN_DOC
-			+ "/_view/fn-ln_kv";
-	private static final String VIEW_Address = DESIGN_DOC + "/_view/fnlnaddress";
+	public static final String VIEW_Default = DESIGN_DOC + "/_view/fn-ln_kv";
+	private static final String VIEW_Address = DESIGN_DOC
+			+ "/_view/fnlnaddress";
 
 	public static final String[] REQUIRED_ATTRIBUTES = new String[] { Contact.FIRSTNAME };
 
 	// ContentProvider settings
-	private static final String PROVIDER_NAME = "de.harm.android.couchone.provider";
-	public static final Uri CONTENT_URI = Uri.parse("content://"
-			+ PROVIDER_NAME + "/" + DB_Name);
+	public static final String AUTHORITY = "de.harm.android.couchone.provider.Provider";
+	public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY
+			+ "/" + DB_Name);
 
 	public static final String COLLECTION_TYPE = "vnd.android.cursor.dir/vnd.harm.android.couchone.contacts";
 	public static final String SINGLE_TYPE = "vnd.android.cursor.item/vnd.harm.android.couchone.contacts";
@@ -33,13 +34,14 @@ public final class CouchConstants implements BaseColumns {
 	private static final UriMatcher uriMatcher;
 	static {
 		uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-		uriMatcher.addURI(PROVIDER_NAME, DB_Name, URI_COLLECTION);
-		uriMatcher.addURI(PROVIDER_NAME, DB_Name + "/#", URI_ENTITY);
+		uriMatcher.addURI(AUTHORITY, DB_Name, URI_COLLECTION);
+		uriMatcher.addURI(AUTHORITY, DB_Name + "/#", URI_ENTITY);
 	}
 
 	public static boolean isCollectionUri(Uri uri) {
-		return (uriMatcher.match(uri) == URI_COLLECTION) ? true
-				: false;
+		Log.i("harmsProviderCouchConstants",
+				"accessed isCollectionUri method with uri: " + uri.toString());
+		return (uriMatcher.match(uri) == URI_COLLECTION) ? true : false;
 	}
 
 	public final class Contact {

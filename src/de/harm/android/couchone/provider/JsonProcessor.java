@@ -1,4 +1,4 @@
-package de.harm.android.couchone;
+package de.harm.android.couchone.provider;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
